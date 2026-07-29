@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar de Itens — Configuração de Ordens</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --navy: #0D2B4E;
+    --navy-deep: #081B33;
+    --surface: #FFFFFF;
+    --bg: #EEF2F7;
+    --line: #DCE3EC;
+    --text: #16232F;
+    --muted: #5C6B7A;
+    --amber: #F0A500;
+    --teal: #0E7C7B;
+    --danger: #C4433D;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--amber); color:var(--navy-deep); }
+
+  /* ---------- Header ---------- */
+  header{
+    background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color:#fff;
+    padding:28px 32px 26px;
+    position:relative;
+    overflow:hidden;
+  }
+  .radar{
+    position:absolute;
+    right:-40px; top:-60px;
+    width:220px; height:220px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.08);
+    pointer-events:none;
+  }
+  .radar::before, .radar::after{
+    content:"";
+    position:absolute; inset:30px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,0.08);
+  }
+  .radar::after{ inset:70px; }
+  .sweep{
+    position:absolute; left:50%; top:50%; width:110px; height:1px;
+    transform-origin:0 0;
+    background:linear-gradient(90deg, rgba(240,165,0,0.85), rgba(240,165,0,0));
+    animation:spin 5s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin:0 0 10px;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:28px;
+    font-weight:700;
+    margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  header p{
+    margin:0;
+    max-width:620px;
+    color:#C3D0DE;
+    font-size:14.5px;
+    line-height:1.55;
+  }
+
+  main{
+    max-width:1080px;
+    margin:0 auto;
+    padding:28px 24px 80px;
+  }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    margin-bottom:20px;
+  }
+  .card h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:15.5px;
+    margin:0 0 4px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .step-num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:20px; height:20px; border-radius:50%;
+    background:var(--navy); color:#fff;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; font-weight:600;
+  }
+  .card .sub{ color:var(--muted); font-size:13px; margin:0 0 16px; }
+
+  /* ---------- Upload zone ---------- */
+  #dropzone{
+    border:1.5px dashed #B7C4D3;
+    border-radius:var(--radius);
+    padding:26px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color .15s, background .15s;
+    background:#FAFBFD;
+  }
+  #dropzone.drag{ border-color:var(--amber); background:#FFF8EA; }
+  #dropzone strong{ color:var(--navy); }
+  #dropzone .hint{ font-size:12.5px; color:var(--muted); margin-top:6px; }
+  #fileInput{ display:none; }
+
+  .file-status{
+    display:none;
+    margin-top:14px;
+    padding:12px 14px;
+    background:#F2F8F5;
+    border:1px solid #CFE8DD;
+    border-radius:8px;
+    font-size:13px;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .file-status.show{ display:flex; }
+  .file-status .name{ font-family:'IBM Plex Mono',monospace; color:var(--teal); font-weight:600; }
+  .file-status .meta{ color:var(--muted); }
+  .file-status button{
+    background:none; border:none; color:var(--danger); cursor:pointer; font-size:12.5px;
+    font-family:'Inter',sans-serif; text-decoration:underline;
+  }
+
+  /* ---------- Search ---------- */
+  .search-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  #modelInput, #byOrderSearchInput, #soSearchInput{
+    flex:1 1 280px;
+    min-width:220px;
+    padding:11px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:14.5px;
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--text);
+    background:#fff;
+  }
+  #modelInput:focus, #byOrderSearchInput:focus, #soSearchInput:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 3px rgba(13,43,78,0.1); }
+  button.primary{
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:11px 20px;
+    font-size:14px;
+    font-weight:600;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  button.primary:hover{ background:var(--navy-deep); }
+  button.primary:disabled{ background:#9AA7B5; cursor:not-allowed; }
+  button.ghost{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--navy);
+    border-radius:8px;
+    padding:10px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  button.ghost:hover{ background:#F2F5F9; }
+
+  .hint-small{ font-size:12.5px; color:var(--muted); margin-top:10px; }
+
+  /* catalog chips */
+  .chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:14px; }
+  .chip{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    padding:5px 10px;
+    background:#F2F5F9;
+    border:1px solid var(--line);
+    border-radius:999px;
+    cursor:pointer;
+    color:var(--navy);
+    transition:all .12s;
+  }
+  .chip:hover{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .chip.active{ background:var(--navy); color:#fff; border-color:var(--navy); font-weight:700; }
+
+  /* ---------- Results ---------- */
+  #results{ display:none; }
+  #results.show{ display:block; }
+
+  .stat-row{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .stat{
+    flex:1 1 150px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px 18px;
+  }
+  .stat .num{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:28px; font-weight:700; color:var(--navy);
+    line-height:1;
+  }
+  .stat .label{ font-size:12px; color:var(--muted); margin-top:6px; text-transform:uppercase; letter-spacing:.05em; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  thead th{
+    text-align:left;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--muted);
+    border-bottom:2px solid var(--line);
+    padding:9px 10px;
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:10px 10px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr:hover{ background:#FAFBFD; }
+  td.mono, th.mono{ font-family:'IBM Plex Mono',monospace; }
+  .badge{
+    display:inline-block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:5px;
+    font-weight:600;
+  }
+  .badge.cfg{ background:#FFF3DC; color:#8A5B00; }
+  .badge.item{ background:#E4F3F1; color:var(--teal); }
+  .badge.item-badge{
+    background:#F2F5F9; color:var(--navy); border:1px solid var(--line);
+    font-family:'IBM Plex Mono',monospace; font-weight:600; margin:2px 4px 2px 0;
+  }
+  .qty{ font-family:'IBM Plex Mono',monospace; font-weight:600; }
+
+  .empty{
+    text-align:center;
+    padding:40px 20px;
+    color:var(--muted);
+    font-size:13.5px;
+  }
+  .empty .big{ font-size:32px; margin-bottom:8px; }
+
+  .table-wrap{ overflow-x:auto; }
+
+  .toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;}
+  .toolbar h3{ font-family:'Space Grotesk',sans-serif; font-size:15px; margin:0; }
+
+  .tabs{ display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+  .tab{
+    padding:8px 16px; border-radius:8px 8px 0 0; cursor:pointer;
+    font-size:13px; font-weight:600; color:var(--muted);
+    border:1px solid transparent;
+  }
+  .tab.active{ color:var(--navy); background:var(--surface); border:1px solid var(--line); border-bottom:1px solid var(--surface); margin-bottom:-1px; }
+  .tabpanel{ display:none; }
+  .tabpanel.active{ display:block; }
+
+  footer{ text-align:center; color:var(--muted); font-size:12px; padding:20px; }
+
+  @media (max-width:600px){
+    header{ padding:22px 18px; }
+    h1{ font-size:22px; }
+    main{ padding:20px 14px 60px; }
+    .card{ padding:18px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="radar"><div class="sweep"></div></div>
+  <p class="eyebrow">Configuração de equipamentos · Consulta local</p>
+  <h1>Radar de Itens</h1>
+  <p>Carregue a planilha de configuração exportada do SAP e descubra em quais ordens um item (transdutor ou acessório) aparece, em qual quantidade, ou consulte a configuração completa de uma ordem específica. Tudo é lido inteiramente no seu navegador — nada é enviado a nenhum servidor.</p>
+</header>
+
+<main>
+
+  <!-- STEP 1: Upload -->
+  <div class="card">
+    <h2><span class="step-num">1</span>Carregar planilha de configuração</h2>
+    <p class="sub">Aceita o export .xlsx do SAP (ex.: EXPORT_AAAAMMDD_HHMMSS.xlsx), com as colunas Sales Document, Sales Document Item, Char Description, Material Description e Order Quantity. A coluna <strong>Chave</strong> é opcional — se não vier no arquivo, o app monta ela automaticamente (Sales Document + Sales Document Item).</p>
+
+    <div id="dropzone">
+      <strong>Clique para escolher o arquivo</strong> ou arraste-o aqui
+      <div class="hint">.xlsx — apenas a primeira planilha é lida</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+
+    <div class="file-status" id="fileStatus">
+      <div>
+        <span class="name" id="fileName"></span>
+        <span class="meta" id="fileMeta"></span>
+      </div>
+      <button id="clearFile">remover</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Search -->
+  <div class="card">
+    <h2><span class="step-num">2</span>Consultar item</h2>
+    <p class="sub">Digite o modelo exatamente como aparece na configuração (ex.: <em>L12-3 Ergo</em>, <em>C6-2 Compact</em>, <em>TEE Disinfection Basin</em>). Separe vários itens por vírgula, ou clique em mais de um item do catálogo abaixo, para consultar vários ao mesmo tempo. Deixe o campo em branco e clique em "Buscar ordens" para ver a lista completa de ordens com qualquer item do catálogo.</p>
+
+    <div class="search-row">
+      <input type="text" id="modelInput" placeholder="Ex.: L12-3 Ergo, C10-4ec" list="catalogList" disabled>
+      <button class="primary" id="searchBtn" disabled>Buscar ordens</button>
+    </div>
+    <datalist id="catalogList"></datalist>
+
+    <div class="hint-small">Catálogo de referência — clique em um ou mais itens para incluir na busca:</div>
+    <div class="chips" id="catalogChips"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="tabs">
+      <div class="tab active" data-tab="detail">Detalhe por ordem</div>
+      <div class="tab" data-tab="overview">Visão geral do catálogo</div>
+      <div class="tab" data-tab="byorder">Itens por Sales Order</div>
+      <div class="tab" data-tab="byso">Buscar Sales Order</div>
+    </div>
+
+    <div class="tabpanel active" id="panel-detail">
+      <div class="stat-row" id="statRow"></div>
+
+      <div class="card" style="padding-top:16px;">
+        <div class="toolbar">
+          <h3 id="detailTitle">Resultados</h3>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost" id="exportBtn">Exportar CSV</button>
+            <button class="ghost" id="exportXlsxBtn">Exportar Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="detailTable">
+            <thead>
+              <tr>
+                <th>Ordem (Sales Document)</th>
+                <th>Item</th>
+                <th>Modelo encontrado</th>
+                <th>Tipo de Linha</th>
+                <th>Descrição na planilha</th>
+                <th class="mono" style="text-align:right;">Qtd.</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="detailEmpty" style="display:none;">
+          <div class="big">—</div>
+          Nenhuma ordem encontrada com esse(s) item(ns).
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="panel-overview">
+      <div class="card" style="padding-top:16px;">
+        <div class="toolbar">
+          <h3 id="overviewTitle">Frequência de todos os itens do catálogo</h3>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost" id="overviewExportCsvBtn">Exportar CSV</button>
+            <button class="ghost" id="overviewExportXlsxBtn">Exportar Excel</button>
+            <button class="ghost" id="runOverviewBtn">Calcular visão geral</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="overviewTable">
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th style="text-align:right;">Ordens únicas</th>
+                <th style="text-align:right;">Quantidade total</th>
+                <th style="text-align:right;">Linhas de configuração</th>
+                <th style="text-align:right;">Linhas de pedido</th>
+              </tr>
+            </thead>
+            <tbody id="overviewBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="overviewEmpty">
+          <div class="big">—</div>
+          Clique em "Calcular visão geral" para varrer todo o catálogo de referência contra a planilha carregada.
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="panel-byorder">
+      <div class="card" style="padding-top:16px;">
+        <div class="toolbar">
+          <h3 id="byOrderTitle">Itens presentes em cada Sales Order</h3>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost" id="byOrderExportCsvBtn">Exportar CSV</button>
+            <button class="ghost" id="byOrderExportXlsxBtn">Exportar Excel</button>
+            <button class="ghost" id="runByOrderBtn">Calcular por ordem</button>
+          </div>
+        </div>
+        <p class="sub" style="margin-top:-6px;">Varre todo o catálogo de referência e agrupa por Sales Order, mostrando quais itens (e em qual quantidade) cada ordem contém.</p>
+        <div class="search-row" id="byOrderSearchRow" style="display:none; margin-bottom:14px;">
+          <input type="text" id="byOrderSearchInput" placeholder="Filtrar por número da ordem…">
+        </div>
+        <div class="table-wrap">
+          <table id="byOrderTable">
+            <thead>
+              <tr>
+                <th>Sales Order</th>
+                <th>Itens encontrados</th>
+                <th style="text-align:right;">Qtd. total</th>
+              </tr>
+            </thead>
+            <tbody id="byOrderBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="byOrderEmpty">
+          <div class="big">—</div>
+          <span id="byOrderEmptyMsg">Clique em "Calcular por ordem" para varrer todo o catálogo de referência contra a planilha carregada, agrupando por Sales Order.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpanel" id="panel-byso">
+      <div class="card" style="padding-top:16px;">
+        <div class="toolbar">
+          <h3>Configuração completa de uma Sales Order</h3>
+        </div>
+        <p class="sub" style="margin-top:-6px;">Digite o número da Sales Order (Sales Document) e veja todas as linhas de configuração e itens de pedido dela — não só os itens do catálogo.</p>
+        <div class="search-row">
+          <input type="text" id="soSearchInput" placeholder="Ex.: 126114390" disabled>
+          <button class="primary" id="soSearchBtn" disabled>Buscar configuração</button>
+        </div>
+
+        <div class="stat-row" id="soStatRow" style="display:none; margin-top:18px;"></div>
+
+        <div class="toolbar" style="margin-top:18px;">
+          <h3 id="soResultTitle" style="visibility:hidden;">Configuração</h3>
+          <div style="display:flex; gap:8px;">
+            <button class="ghost" id="soExportCsvBtn" style="display:none;">Exportar CSV</button>
+            <button class="ghost" id="soExportXlsxBtn" style="display:none;">Exportar Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="soTable" style="display:none;">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Tipo de Linha</th>
+                <th>Descrição</th>
+                <th style="text-align:right;">Qtd.</th>
+              </tr>
+            </thead>
+            <tbody id="soBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="soEmpty">
+          <div class="big">—</div>
+          <span id="soEmptyMsg">Digite um número de Sales Order acima para ver a configuração completa dela.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>Processamento 100% local no navegador · nenhum dado é enviado a servidores externos</footer>
+
+<script>
+(function(){
+  const CATALOG = [
+    "L12-3 Ergo","C10-4ec","L12-3","L12-4","C6-2","S4-2","C5-1","S5-1","S12-4","S8-3",
+    "X5-1c","X5-1","eL 18-4","eL 18-4 EMT","mL26-8","X7-2t","X8-2t","V6-2","S4-1","V9-2",
+    "C10-3v","C8-5","C9-4v","L18-5","L12-5","3D9-3v","L12-5 50","C6-2 Compact","TEE Disinfection Basin"
+  ];
+
+  let rows = [];        // parsed raw rows as objects
+  let fileLoaded = false;
+  let searchPerformed = false;
+  let overviewComputed = false;
+  let lastSearchRaw = '';
+  let selectedModels = new Set();
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileStatus = document.getElementById('fileStatus');
+  const fileNameEl = document.getElementById('fileName');
+  const fileMetaEl = document.getElementById('fileMeta');
+  const clearFileBtn = document.getElementById('clearFile');
+
+  const modelInput = document.getElementById('modelInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const catalogChips = document.getElementById('catalogChips');
+  const catalogList = document.getElementById('catalogList');
+  const resultsEl = document.getElementById('results');
+  const statRow = document.getElementById('statRow');
+  const detailBody = document.getElementById('detailBody');
+  const detailEmpty = document.getElementById('detailEmpty');
+  const detailTitle = document.getElementById('detailTitle');
+  const detailTable = document.getElementById('detailTable');
+  const exportBtn = document.getElementById('exportBtn');
+  const exportXlsxBtn = document.getElementById('exportXlsxBtn');
+  const overviewBody = document.getElementById('overviewBody');
+  const overviewEmpty = document.getElementById('overviewEmpty');
+  const runOverviewBtn = document.getElementById('runOverviewBtn');
+  const overviewTitle = document.getElementById('overviewTitle');
+  const overviewExportCsvBtn = document.getElementById('overviewExportCsvBtn');
+  const overviewExportXlsxBtn = document.getElementById('overviewExportXlsxBtn');
+
+  const runByOrderBtn = document.getElementById('runByOrderBtn');
+  const byOrderTitle = document.getElementById('byOrderTitle');
+  const byOrderBody = document.getElementById('byOrderBody');
+  const byOrderEmpty = document.getElementById('byOrderEmpty');
+  const byOrderEmptyMsg = document.getElementById('byOrderEmptyMsg');
+  const byOrderTable = document.getElementById('byOrderTable');
+  const byOrderSearchRow = document.getElementById('byOrderSearchRow');
+  const byOrderSearchInput = document.getElementById('byOrderSearchInput');
+  const byOrderExportCsvBtn = document.getElementById('byOrderExportCsvBtn');
+  const byOrderExportXlsxBtn = document.getElementById('byOrderExportXlsxBtn');
+
+  const soSearchInput = document.getElementById('soSearchInput');
+  const soSearchBtn = document.getElementById('soSearchBtn');
+  const soStatRow = document.getElementById('soStatRow');
+  const soResultTitle = document.getElementById('soResultTitle');
+  const soTable = document.getElementById('soTable');
+  const soBody = document.getElementById('soBody');
+  const soEmpty = document.getElementById('soEmpty');
+  const soEmptyMsg = document.getElementById('soEmptyMsg');
+  const soExportCsvBtn = document.getElementById('soExportCsvBtn');
+  const soExportXlsxBtn = document.getElementById('soExportXlsxBtn');
+
+  let lastDetailRows = [];
+  let lastOverviewSummary = [];
+  let lastSoRows = [];
+  let lastSoOrder = '';
+
+  function syncModelInputFromSelection(){
+    modelInput.value = Array.from(selectedModels).join(', ');
+  }
+  function syncSelectionFromInput(){
+    const typed = modelInput.value.split(',').map(s=>s.trim()).filter(Boolean);
+    selectedModels = new Set(typed);
+    updateChipStates();
+  }
+  function updateChipStates(){
+    Array.from(catalogChips.children).forEach(chip=>{
+      chip.classList.toggle('active', selectedModels.has(chip.dataset.value));
+    });
+  }
+  modelInput.addEventListener('input', syncSelectionFromInput);
+
+  // ---------- catalog chips + datalist ----------
+  CATALOG.forEach(model=>{
+    const chip = document.createElement('div');
+    chip.className='chip';
+    chip.textContent=model;
+    chip.dataset.value = model;
+    chip.addEventListener('click', ()=>{
+      if(selectedModels.has(model)){ selectedModels.delete(model); }
+      else { selectedModels.add(model); }
+      updateChipStates();
+      syncModelInputFromSelection();
+      if(fileLoaded){ runSearch(); }
+    });
+    catalogChips.appendChild(chip);
+
+    const opt = document.createElement('option');
+    opt.value = model;
+    catalogList.appendChild(opt);
+  });
+
+  // ---------- upload handling ----------
+  dropzone.addEventListener('click', ()=> fileInput.click());
+  dropzone.addEventListener('dragover', e=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e=>{
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e=>{
+    if(e.target.files.length) handleFile(e.target.files[0]);
+  });
+  clearFileBtn.addEventListener('click', ()=>{
+    rows = []; fileLoaded = false;
+    fileStatus.classList.remove('show');
+    fileInput.value = '';
+    modelInput.disabled = true; searchBtn.disabled = true;
+    soSearchInput.disabled = true; soSearchBtn.disabled = true;
+    resultsEl.classList.remove('show');
+    overviewBody.innerHTML=''; overviewEmpty.style.display='block';
+    lastSearchRaw = ''; overviewComputed = false; searchPerformed = false;
+    byOrderBody.innerHTML=''; byOrderEmpty.style.display='block';
+    byOrderEmptyMsg.textContent = 'Clique em "Calcular por ordem" para varrer todo o catálogo de referência contra a planilha carregada, agrupando por Sales Order.';
+    byOrderSearchRow.style.display = 'none'; byOrderData = []; byOrderComputed = false;
+    soTable.style.display='none'; soBody.innerHTML=''; soStatRow.style.display='none'; soStatRow.innerHTML='';
+    soResultTitle.style.visibility='hidden';
+    soExportCsvBtn.style.display='none'; soExportXlsxBtn.style.display='none';
+    soEmpty.style.display='block'; soEmptyMsg.textContent = 'Digite um número de Sales Order acima para ver a configuração completa dela.';
+  });
+
+  function handleFile(file){
+    fileNameEl.textContent = file.name;
+    fileMetaEl.textContent = 'lendo…';
+    fileStatus.classList.add('show');
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+        parseRows(aoa);
+        fileMetaEl.textContent = rows.length.toLocaleString('pt-BR') + ' linhas carregadas';
+        fileLoaded = true;
+        modelInput.disabled = false; searchBtn.disabled = false;
+        soSearchInput.disabled = false; soSearchBtn.disabled = false;
+      }catch(err){
+        fileMetaEl.textContent = 'erro ao ler o arquivo';
+        console.error(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function findCol(headers, candidates){
+    for(const c of candidates){
+      const idx = headers.findIndex(h => String(h).trim().toLowerCase() === c.toLowerCase());
+      if(idx !== -1) return idx;
+    }
+    return -1;
+  }
+
+  function parseRows(aoa){
+    if(!aoa.length){ rows=[]; return; }
+    const headers = aoa[0];
+    const col = {
+      chave:   findCol(headers, ['Chave']),
+      order:   findCol(headers, ['Sales Document']),
+      item:    findCol(headers, ['Sales Document Item']),
+      material:findCol(headers, ['Material']),
+      charDesc:findCol(headers, ['Char Description']),
+      matDesc: findCol(headers, ['Material Description']),
+      qty:     findCol(headers, ['Order Quantity'])
+    };
+    rows = [];
+    for(let i=1;i<aoa.length;i++){
+      const r = aoa[i];
+      if(!r || !r.length) continue;
+      const order = col.order!==-1 ? String(r[col.order]||'').trim() : '';
+      if(!order) continue;
+      const item = col.item!==-1 ? String(r[col.item]||'').trim() : '';
+      const chaveFromFile = col.chave!==-1 ? String(r[col.chave]||'').trim() : '';
+      rows.push({
+        chave: chaveFromFile || (order + item), // Chave = Sales Document + Sales Document Item; computado automaticamente se ausente
+        order: order,
+        item: item,
+        material: col.material!==-1 ? String(r[col.material]||'').trim() : '',
+        charDesc: col.charDesc!==-1 ? String(r[col.charDesc]||'').trim() : '',
+        matDesc: col.matDesc!==-1 ? String(r[col.matDesc]||'').trim() : '',
+        qty: col.qty!==-1 ? Number(r[col.qty]) : NaN
+      });
+    }
+  }
+
+  // ---------- matching logic ----------
+  function normalize(s){
+    return String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+  }
+  function compact(s){
+    return String(s||'').replace(/\s+/g,'');
+  }
+  function matchField(fieldValue, targetNorm, targetCompact){
+    if(!fieldValue) return false;
+    const v = normalize(fieldValue);
+    if(!v) return false;
+    if(v === targetNorm || compact(v) === targetCompact) return true;
+    const noPrefix = v.replace(/^transducer,\s*/,'');
+    if(noPrefix !== v && (noPrefix === targetNorm || compact(noPrefix) === targetCompact)) return true;
+    const noSuffix = v.replace(/\s*transducer$/,'');
+    if(noSuffix !== v && (noSuffix === targetNorm || compact(noSuffix) === targetCompact)) return true;
+    return false;
+  }
+
+  // returns array of {order,item,type,desc,qty} matches for a single model string
+  function findMatches(modelRaw){
+    const targetNorm = normalize(modelRaw);
+    if(!targetNorm) return [];
+    const targetCompact = compact(targetNorm);
+    const out = [];
+    for(const r of rows){
+      let hit = null;
+      if(r.material && matchField(r.matDesc, targetNorm, targetCompact)){
+        hit = { order:r.order, item:r.item, type:'item', desc:r.matDesc, qty: isNaN(r.qty) ? 1 : r.qty };
+      } else if(!r.material && matchField(r.charDesc, targetNorm, targetCompact)){
+        hit = { order:r.order, item:r.item, type:'cfg', desc:r.charDesc, qty:1 };
+      }
+      if(hit) out.push(hit);
+    }
+    return out;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- detail search ----------
+  function runSearch(){
+    const raw = modelInput.value.trim();
+    let models = raw.split(',').map(s=>s.trim()).filter(Boolean);
+    if(models.length === 0) models = CATALOG.slice();
+    lastSearchRaw = raw;
+    searchPerformed = true;
+
+    let allMatches = [];
+    models.forEach(m=>{
+      const matches = findMatches(m);
+      matches.forEach(match=> allMatches.push(Object.assign({model:m}, match)));
+    });
+
+    lastDetailRows = allMatches;
+    resultsEl.classList.add('show');
+    selectTab('detail');
+
+    const uniqueOrders = new Set(allMatches.map(m=>m.order));
+    const totalQty = allMatches.reduce((s,m)=>s+(m.qty||0),0);
+    statRow.innerHTML = `
+      <div class="stat"><div class="num">${uniqueOrders.size}</div><div class="label">Ordens únicas</div></div>
+      <div class="stat"><div class="num">${allMatches.length}</div><div class="label">Linhas encontradas</div></div>
+      <div class="stat"><div class="num">${totalQty}</div><div class="label">Quantidade total</div></div>
+    `;
+
+    detailTitle.textContent = models.length === CATALOG.length && !raw
+      ? 'Ordens com qualquer item do catálogo'
+      : (models.length===1 ? `Ordens com "${models[0]}"` : `Ordens com ${models.length} itens buscados`);
+
+    detailBody.innerHTML = '';
+    if(!allMatches.length){
+      detailTable.style.display='none';
+      detailEmpty.style.display='block';
+      return;
+    }
+    detailTable.style.display='table';
+    detailEmpty.style.display='none';
+
+    allMatches
+      .sort((a,b)=> a.order.localeCompare(b.order) || String(a.item).localeCompare(String(b.item)))
+      .forEach(m=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${escapeHtml(m.order)}</td>
+          <td class="mono">${escapeHtml(m.item)}</td>
+          <td class="mono">${escapeHtml(m.model)}</td>
+          <td><span class="badge ${m.type==='cfg'?'cfg':'item'}">${m.type==='cfg'?'Configuração':'Item de pedido'}</span></td>
+          <td>${escapeHtml(m.desc)}</td>
+          <td class="qty" style="text-align:right;">${m.qty}</td>
+        `;
+        detailBody.appendChild(tr);
+      });
+  }
+
+  searchBtn.addEventListener('click', runSearch);
+  modelInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
+
+  // ---------- shared export helpers ----------
+  function downloadCsv(filename, headerArr, rowsArr){
+    const lines = [headerArr.join(';')];
+    rowsArr.forEach(r => lines.push(r.map(v => String(v===null||v===undefined?'':v).replace(/;/g,',').replace(/\n/g,' ')).join(';')));
+    const blob = new Blob(["\ufeff"+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function downloadExcel(filename, headerArr, rowsArr){
+    const aoa = [headerArr, ...rowsArr];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, filename);
+  }
+
+  const detailExportHeader = ['Ordem','Item','Modelo','Tipo de Linha','Descricao','Quantidade'];
+  function detailExportRows(){
+    return lastDetailRows.map(m => [
+      m.order, m.item, m.model, m.type==='cfg'?'Configuracao':'Item de pedido', m.desc, m.qty
+    ]);
+  }
+  exportBtn.addEventListener('click', ()=>{
+    if(!lastDetailRows.length) return;
+    downloadCsv('consulta_itens.csv', detailExportHeader, detailExportRows());
+  });
+  exportXlsxBtn.addEventListener('click', ()=>{
+    if(!lastDetailRows.length) return;
+    downloadExcel('consulta_itens.xlsx', detailExportHeader, detailExportRows());
+  });
+
+  const overviewExportHeader = ['Modelo','Ordens Unicas','Quantidade Total','Linhas de Configuracao','Linhas de Pedido'];
+  function overviewExportRows(){
+    return lastOverviewSummary.map(s => [s.model, s.orders, s.qty, s.cfgCount, s.itemCount]);
+  }
+  overviewExportCsvBtn.addEventListener('click', ()=>{
+    if(!lastOverviewSummary.length) return;
+    downloadCsv('visao_geral_catalogo.csv', overviewExportHeader, overviewExportRows());
+  });
+  overviewExportXlsxBtn.addEventListener('click', ()=>{
+    if(!lastOverviewSummary.length) return;
+    downloadExcel('visao_geral_catalogo.xlsx', overviewExportHeader, overviewExportRows());
+  });
+
+  const byOrderExportHeader = ['Sales Order','Itens (modelo x qtd)','Qtd Total'];
+  function byOrderExportRows(){
+    const filterText = byOrderSearchInput.value.trim().toLowerCase();
+    const data = filterText ? byOrderData.filter(o => o.order.toLowerCase().includes(filterText)) : byOrderData;
+    return data.map(o => {
+      const itemsStr = Object.entries(o.items).sort((a,b)=>a[0].localeCompare(b[0])).map(([m,q])=>`${m} x${q}`).join('; ');
+      const totalQty = Object.values(o.items).reduce((s,q)=>s+q,0);
+      return [o.order, itemsStr, totalQty];
+    });
+  }
+  byOrderExportCsvBtn.addEventListener('click', ()=>{
+    if(!byOrderData.length) return;
+    downloadCsv('itens_por_ordem.csv', byOrderExportHeader, byOrderExportRows());
+  });
+  byOrderExportXlsxBtn.addEventListener('click', ()=>{
+    if(!byOrderData.length) return;
+    downloadExcel('itens_por_ordem.xlsx', byOrderExportHeader, byOrderExportRows());
+  });
+
+  const soExportHeader = ['Sales Order','Item','Tipo de Linha','Descricao','Quantidade'];
+  function soExportRows(){
+    return lastSoRows.map(r => [lastSoOrder, r.item, r.type==='cfg'?'Configuracao':'Item de pedido', r.desc, r.qty]);
+  }
+  soExportCsvBtn.addEventListener('click', ()=>{
+    if(!lastSoRows.length) return;
+    downloadCsv('configuracao_ordem_'+lastSoOrder+'.csv', soExportHeader, soExportRows());
+  });
+  soExportXlsxBtn.addEventListener('click', ()=>{
+    if(!lastSoRows.length) return;
+    downloadExcel('configuracao_ordem_'+lastSoOrder+'.xlsx', soExportHeader, soExportRows());
+  });
+
+  // ---------- overview (all catalog items) ----------
+  function computeOverview(){
+    if(!fileLoaded) return;
+    overviewComputed = true;
+    overviewTitle.textContent = 'Frequência de todos os itens do catálogo';
+    overviewBody.innerHTML = '';
+    const summary = CATALOG.map(model=>{
+      const matches = findMatches(model);
+      const uniqueOrders = new Set(matches.map(m=>m.order));
+      const totalQty = matches.reduce((s,m)=>s+(m.qty||0),0);
+      const cfgCount = matches.filter(m=>m.type==='cfg').length;
+      const itemCount = matches.filter(m=>m.type==='item').length;
+      return {model, orders:uniqueOrders.size, qty:totalQty, cfgCount, itemCount};
+    }).sort((a,b)=> b.qty - a.qty);
+    lastOverviewSummary = summary;
+
+    overviewEmpty.style.display = 'none';
+    summary.forEach(s=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono">${escapeHtml(s.model)}</td>
+        <td style="text-align:right;">${s.orders}</td>
+        <td class="qty" style="text-align:right;">${s.qty}</td>
+        <td style="text-align:right;" class="mono">${s.cfgCount}</td>
+        <td style="text-align:right;" class="mono">${s.itemCount}</td>
+      `;
+      tr.style.cursor='pointer';
+      tr.addEventListener('click', ()=>{
+        modelInput.value = s.model;
+        syncSelectionFromInput();
+        runSearch();
+      });
+      overviewBody.appendChild(tr);
+    });
+  }
+  runOverviewBtn.addEventListener('click', computeOverview);
+
+  // ---------- itens por Sales Order ----------
+  let byOrderData = [];
+  let byOrderComputed = false;
+
+  function computeByOrder(){
+    if(!fileLoaded) return;
+    byOrderComputed = true;
+    const catalogTargets = CATALOG.map(m=>{ const n=normalize(m); return {model:m, norm:n, compact:compact(n)}; });
+    const orderMap = {};
+
+    for(const r of rows){
+      const desc = r.material ? r.matDesc : r.charDesc;
+      if(!desc) continue;
+      let matchedModel = null;
+      for(const t of catalogTargets){
+        if(matchField(desc, t.norm, t.compact)){ matchedModel = t.model; break; }
+      }
+      if(!matchedModel) continue;
+
+      const qty = r.material ? (isNaN(r.qty) ? 1 : r.qty) : 1;
+
+      if(!orderMap[r.order]){
+        orderMap[r.order] = { order: r.order, items: {} };
+      }
+      orderMap[r.order].items[matchedModel] = (orderMap[r.order].items[matchedModel] || 0) + qty;
+    }
+
+    byOrderData = Object.values(orderMap).sort((a,b)=> a.order.localeCompare(b.order));
+    byOrderTitle.textContent = 'Itens presentes em cada Sales Order';
+    byOrderSearchRow.style.display = byOrderData.length ? 'flex' : 'none';
+    renderByOrder();
+  }
+
+  function renderByOrder(){
+    const filterText = byOrderSearchInput.value.trim().toLowerCase();
+    const data = filterText
+      ? byOrderData.filter(o => o.order.toLowerCase().includes(filterText))
+      : byOrderData;
+
+    byOrderBody.innerHTML = '';
+    if(!data.length){
+      byOrderTable.style.display = 'none';
+      byOrderEmpty.style.display = 'block';
+      byOrderEmptyMsg.textContent = byOrderData.length
+        ? 'Nenhuma ordem encontrada com esse número.'
+        : 'Clique em "Calcular por ordem" para varrer todo o catálogo de referência contra a planilha carregada, agrupando por Sales Order.';
+      return;
+    }
+    byOrderTable.style.display = 'table';
+    byOrderEmpty.style.display = 'none';
+
+    data.forEach(o=>{
+      const tr = document.createElement('tr');
+      const itemsHtml = Object.entries(o.items)
+        .sort((a,b)=> a[0].localeCompare(b[0]))
+        .map(([model,qty])=> `<span class="badge item-badge">${escapeHtml(model)} × ${qty}</span>`)
+        .join('');
+      const totalQty = Object.values(o.items).reduce((s,q)=>s+q,0);
+      tr.innerHTML = `
+        <td class="mono">${escapeHtml(o.order)}</td>
+        <td>${itemsHtml}</td>
+        <td class="qty" style="text-align:right;">${totalQty}</td>
+      `;
+      byOrderBody.appendChild(tr);
+    });
+  }
+
+  runByOrderBtn.addEventListener('click', computeByOrder);
+  byOrderSearchInput.addEventListener('input', renderByOrder);
+
+  // ---------- Buscar Sales Order (configuração completa, sem restrição ao catálogo) ----------
+  function normalizeOrderKey(v){
+    const s = String(v||'').trim();
+    if(!s) return '';
+    return s.replace(/^0+(?=.)/,'').toLowerCase();
+  }
+
+  function findOrderConfig(orderRaw){
+    const target = normalizeOrderKey(orderRaw);
+    if(!target) return [];
+    return rows
+      .filter(r => normalizeOrderKey(r.order) === target)
+      .map(r => ({
+        item: r.item,
+        type: r.material ? 'item' : 'cfg',
+        desc: r.material ? r.matDesc : r.charDesc,
+        qty: r.material ? (isNaN(r.qty) ? 1 : r.qty) : 1
+      }))
+      .filter(x => x.desc)
+      .sort((a,b)=> String(a.item).localeCompare(String(b.item)));
+  }
+
+  function runOrderSearch(){
+    const raw = soSearchInput.value.trim();
+    if(!raw) return;
+    lastSoOrder = raw;
+    const configRows = findOrderConfig(raw);
+    lastSoRows = configRows;
+
+    soResultTitle.style.visibility = 'visible';
+    soResultTitle.textContent = `Configuração da Sales Order ${raw}`;
+
+    if(!configRows.length){
+      soTable.style.display = 'none';
+      soStatRow.style.display = 'none';
+      soExportCsvBtn.style.display = 'none';
+      soExportXlsxBtn.style.display = 'none';
+      soEmpty.style.display = 'block';
+      soEmptyMsg.textContent = `Nenhuma linha encontrada para a Sales Order "${raw}" na planilha de configuração.`;
+      return;
+    }
+
+    soEmpty.style.display = 'none';
+    soTable.style.display = 'table';
+    soExportCsvBtn.style.display = 'inline-block';
+    soExportXlsxBtn.style.display = 'inline-block';
+
+    const totalQty = configRows.reduce((s,r)=>s+(r.qty||0),0);
+    soStatRow.innerHTML = `
+      <div class="stat"><div class="num">${configRows.length}</div><div class="label">Linhas na configuração</div></div>
+      <div class="stat"><div class="num">${totalQty}</div><div class="label">Quantidade total</div></div>
+    `;
+    soStatRow.style.display = 'flex';
+
+    soBody.innerHTML = '';
+    configRows.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono">${escapeHtml(r.item)}</td>
+        <td><span class="badge ${r.type==='cfg'?'cfg':'item'}">${r.type==='cfg'?'Configuração':'Item de pedido'}</span></td>
+        <td>${escapeHtml(r.desc)}</td>
+        <td class="qty" style="text-align:right;">${r.qty}</td>
+      `;
+      soBody.appendChild(tr);
+    });
+  }
+
+  soSearchBtn.addEventListener('click', runOrderSearch);
+  soSearchInput.addEventListener('keydown', e=>{ if(e.key==='Enter') runOrderSearch(); });
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click', ()=> selectTab(tab.dataset.tab));
+  });
+  function selectTab(name){
+    document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.tab===name));
+    document.getElementById('panel-detail').classList.toggle('active', name==='detail');
+    document.getElementById('panel-overview').classList.toggle('active', name==='overview');
+    document.getElementById('panel-byorder').classList.toggle('active', name==='byorder');
+    document.getElementById('panel-byso').classList.toggle('active', name==='byso');
+  }
+
+})();
+</script>
+
+</body>
+</html>
